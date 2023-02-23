@@ -8,6 +8,8 @@
 
 #include <MaterialXFormat/Util.h>
 
+#include <fstream>
+
 //
 // Material methods
 //
@@ -83,6 +85,12 @@ bool Material::generateShader(mx::GenContext& context)
     {
         return false;
     }
+
+    // JHQ: override pixel shader
+    //std::ifstream t("D:\\code\\MaterialX\\resources\\Materials\\Examples\\StandardSurface\\standard_surface_default_ps.glsl");
+    //std::stringstream buffer;
+    //buffer << t.rdbuf();
+    //_hwShader->setSourceCode(buffer.str());
 
     _glProgram = mx::GlslProgram::create();
     _glProgram->setStages(_hwShader);

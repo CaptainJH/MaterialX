@@ -75,6 +75,7 @@ add_executable(MaterialXView ${materialx_source} ${materialx_headers})
 set(MATERIALX_LIBRARIES
     MaterialXFormat
     MaterialXGenGlsl
+    MaterialXGenHlsl
     MaterialXRenderGlsl)
 
 if (MATERIALX_BUILD_GEN_OSL)

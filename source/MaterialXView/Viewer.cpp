@@ -19,6 +19,9 @@
 #include <MaterialXGenOsl/OslShaderGenerator.h>
 #endif
 #include <MaterialXGenGlsl/EsslShaderGenerator.h>
+#define MATERIALX_GENHLSL_EXPORTS
+#include <MaterialXGenHlsl/HlslShaderGenerator.h>
+
 
 #include <MaterialXFormat/Environ.h>
 #include <MaterialXFormat/Util.h>
@@ -249,6 +252,7 @@ Viewer::Viewer(const std::string& materialFilename,
 #if MATERIALX_BUILD_GEN_MDL
     _genContextMdl(mx::MdlShaderGenerator::create()),
 #endif
+    _genContextHlsl(mx::HlslShaderGenerator::create()),
     _unitRegistry(mx::UnitConverterRegistry::create()),
     _drawEnvironment(false),
     _outlineSelection(false),
@@ -304,6 +308,9 @@ Viewer::Viewer(const std::string& materialFilename,
     _genContextMdl.getOptions().targetColorSpaceOverride = "lin_rec709";
     _genContextMdl.getOptions().fileTextureVerticalFlip = false;
 #endif
+    // Set HLSL generator options
+    _genContextHlsl.getOptions().targetColorSpaceOverride = "lin_rec709";
+    _genContextHlsl.getOptions().fileTextureVerticalFlip = false;
 
     // Register the GLSL implementation for <viewdir> used by the environment shader.
     _genContext.getShaderGenerator().registerImplementation("IM_viewdir_vector3_" + mx::GlslShaderGenerator::TARGET, ViewDirGlsl::create);
@@ -507,6 +514,7 @@ void Viewer::applyDirectLights(mx::DocumentPtr doc)
         std::vector<mx::NodePtr> lights;
         _lightHandler->findLights(doc, lights);
         _lightHandler->registerLights(doc, lights, _genContext);
+        _lightHandler->registerLights(doc, lights, _genContextHlsl);
         _lightHandler->registerLights(doc, lights, _genContextEssl);
         _lightHandler->setLightSources(lights);
     }
@@ -1474,6 +1482,16 @@ void Viewer::saveShaderSource(mx::GenContext& context)
                 new ng::MessageDialog(this, ng::MessageDialog::Type::Information, "Saved GLSL source: ",
                     sourceFilename.asString() + "_*.glsl");
             }
+            else if (context.getShaderGenerator().getTarget() == mx::HlslShaderGenerator::TARGET)
+            {
+                mx::ShaderPtr shader = createShader(elem->getNamePath(), context, elem);
+                const std::string& pixelShader = shader->getSourceCode(mx::Stage::PIXEL);
+                const std::string& vertexShader = shader->getSourceCode(mx::Stage::VERTEX);
+                writeTextFile(pixelShader, sourceFilename.asString() + "_ps.hlsl");
+                writeTextFile(vertexShader, sourceFilename.asString() + "_vs.hlsl");
+                new ng::MessageDialog(this, ng::MessageDialog::Type::Information, "Saved HLSL source: ",
+                                      sourceFilename.asString() + "_*.hlsl");
+            }
             else if (context.getShaderGenerator().getTarget() == mx::EsslShaderGenerator::TARGET)
             {
                 mx::ShaderPtr shader = createShader(elem->getNamePath(), context, elem);
@@ -1654,6 +1672,7 @@ void Viewer::loadStandardLibraries()
 
     // Initialize the generator contexts.
     initContext(_genContext);
+    initContext(_genContextHlsl);
     initContext(_genContextEssl);
 #if MATERIALX_BUILD_GEN_OSL
     initContext(_genContextOsl);
@@ -1722,6 +1741,12 @@ bool Viewer::keyboard_event(int key, int scancode, int action, int modifiers)
         return true;
     }
 #endif
+
+    if (key == GLFW_KEY_H && action == GLFW_PRESS)
+    {
+        saveShaderSource(_genContextHlsl);
+        return true;
+    }
 
     // Save Essl shader source to file.
     if (key == GLFW_KEY_E && action == GLFW_PRESS)
@@ -2726,6 +2751,7 @@ void Viewer::setShaderInterfaceType(mx::ShaderInterfaceType interfaceType)
 #if MATERIALX_BUILD_GEN_MDL
     _genContextMdl.getOptions().shaderInterfaceType = interfaceType;
 #endif
+    _genContextHlsl.getOptions().shaderInterfaceType = interfaceType;
     reloadShaders();
     updateDisplayedProperties();
 }
